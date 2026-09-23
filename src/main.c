@@ -5,10 +5,10 @@
 
 struct block_x {
     uint8_t marker;
-    struct free_area *prev;
+    struct block_x *prev;
     bool in_use;
     uint32_t lenght;
-    struct free_area *next;
+    struct block_x *next;
 };
 
 struct stats {
