@@ -69,6 +69,51 @@ int *my_malloc(size_t size){
     return add_used_block(size);
 }
 
+int my_free(int *ptr){
+    if(ptr == NULL){
+        return -1;
+    }
+    // Get the malloc header
+    my_stats *malloc_header = get_malloc_header();
+    while(malloc_header->simple_lock){
+        // Wait until the lock is released
+        sleep(1);
+    };
+    malloc_header->simple_lock = true;
+
+    my_block *block = (my_block *)((char *)ptr - sizeof(my_block));
+    assert(block->marker == BLOCK_MARKER);
+    block->in_use = false;
+    join_if_possible(block);
+    
+    malloc_header->simple_lock = false;
+    return 0;
+}
+
+int join_if_possible(my_block *block){
+    // Join with the next, if possible
+    if(block->next != NULL && (block->next)->in_use == false){
+        my_block *next_block = (my_block *)block->next;
+        next_block->marker = NULL;
+        block->lenght += next_block->lenght;
+        block->next = next_block->next;
+        if(block->next != NULL){
+            (block->next)->prev = block;
+        }
+    }
+    // Join with the previous, if possible
+    if(block->prev != NULL && (block->prev)->in_use == false){
+        my_block *prev_block = (my_block *)block->prev;
+        block->marker = NULL;
+        prev_block->lenght += block->lenght;
+        prev_block->prev = block->prev;
+        if(prev_block->prev != NULL){
+            (prev_block->prev)->next = prev_block;
+        }
+    }
+    return 0;
+}
+
 int *add_used_block(size_t size){
     // Get the malloc header
     my_stats *malloc_header = get_malloc_header();
