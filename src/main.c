@@ -121,9 +121,22 @@ int join_if_possible(my_block *block, my_stats *malloc_header){
         }
         // Clean up the merged block header to avoid dangling pointers and potential misuse
         memset(block, 0, sizeof(my_block));
+        block = prev_block;
         malloc_header->total_blocks--;
     }
+    if(malloc_header->total_pages > 1){
+        free_page_if_possible(malloc_header);
+    }
+
     return 0;
+}
+
+int free_page_if_possible(my_stats *malloc_header){
+    my_block *last_block = find_last_block();
+    if(last_block->lenght > PAGE_SIZE && last_block->in_use == false){
+        sbrk(-PAGE_SIZE);
+        last_block->lenght -= PAGE_SIZE;
+    }
 }
 
 int *add_used_block(size_t size){
