@@ -69,7 +69,7 @@ int *my_malloc(size_t size){
     return add_used_block(size);
 }
 
-int my_free(int *ptr){
+int my_free(void *ptr){
     if(ptr == NULL){
         return -1;
     }
@@ -81,35 +81,47 @@ int my_free(int *ptr){
     };
     malloc_header->simple_lock = true;
 
-    my_block *block = (my_block *)((char *)ptr - sizeof(my_block));
-    assert(block->marker == BLOCK_MARKER);
+    my_block *block = (my_block *)(ptr - sizeof(my_block));
+    // Check if the block is valid
+    if(block->marker != BLOCK_MARKER){
+        malloc_header->simple_lock = false;
+        return -1;
+    }
+    // Mark the block as free and clear its contents
     block->in_use = false;
-    join_if_possible(block);
+    memset(ptr, 0, block->lenght);
     
+    join_if_possible(block, malloc_header);
     malloc_header->simple_lock = false;
     return 0;
 }
 
-int join_if_possible(my_block *block){
+int join_if_possible(my_block *block, my_stats *malloc_header){
     // Join with the next, if possible
     if(block->next != NULL && (block->next)->in_use == false){
         my_block *next_block = (my_block *)block->next;
         next_block->marker = NULL;
-        block->lenght += next_block->lenght;
+        block->lenght += next_block->lenght + sizeof(my_block);
         block->next = next_block->next;
         if(block->next != NULL){
             (block->next)->prev = block;
         }
+        // Clean up the merged block header to avoid dangling pointers and potential misuse
+        memset(next_block, 0, sizeof(my_block));
+        malloc_header->total_blocks--;
     }
     // Join with the previous, if possible
     if(block->prev != NULL && (block->prev)->in_use == false){
         my_block *prev_block = (my_block *)block->prev;
         block->marker = NULL;
-        prev_block->lenght += block->lenght;
+        prev_block->lenght += block->lenght + sizeof(my_block);
         prev_block->prev = block->prev;
         if(prev_block->prev != NULL){
             (prev_block->prev)->next = prev_block;
         }
+        // Clean up the merged block header to avoid dangling pointers and potential misuse
+        memset(block, 0, sizeof(my_block));
+        malloc_header->total_blocks--;
     }
     return 0;
 }
