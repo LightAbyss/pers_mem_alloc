@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <unistd.h>
 #include <stdbool.h>
+#include <assert.h>
 
 struct block_x {
     uint8_t marker;
@@ -12,7 +13,7 @@ struct block_x {
 };
 
 struct stats {
-    int magic_bytes;
+    uint8_t marker;
     bool simple_lock;
     uint32_t total_blocks;
     uint32_t total_pages;
@@ -21,17 +22,17 @@ struct stats {
 typedef struct stats my_stats;
 typedef struct block_x my_block;
 
-const int SAFE_GUARD = 0x55;
-const int HEADER_MARKER = 0x44;
+const uint8_t HEADER_MARKER = 0x55;
+const uint8_t BLOCK_MARKER = 0x44;
 const int PAGE_SIZE = 4096;
 const int BLOCK_SIZE = sizeof(my_block);
 
-char *heap_start = NULL;
+static char *heap_start = NULL;
 
 my_stats *get_malloc_header(){
     assert(heap_start != NULL);
     my_stats *malloc_header = (my_stats *)heap_start;
-    assert(malloc_header->magic_bytes == SAFE_GUARD);
+    assert(malloc_header->marker == HEADER_MARKER);
     return malloc_header;
 }
 
@@ -52,14 +53,14 @@ int *my_malloc(size_t size){
     char *heap_end = sbrk(0);
     long int length = heap_end - heap_start;
     // Check if the heap has been initialized
-    if((*heap_start) != SAFE_GUARD){
-        *(heap_start) = SAFE_GUARD;
+    if((*heap_start) != HEADER_MARKER){
+        *(heap_start) = HEADER_MARKER;
         my_stats *malloc_header = (my_stats *)heap_start;
         malloc_header->total_blocks = 1;
         malloc_header->total_pages = 1;
         
         my_block *first_block = (my_block *)((char *)heap_start + sizeof(my_stats));
-        first_block->marker = HEADER_MARKER;
+        first_block->marker = BLOCK_MARKER;
         first_block->in_use = false;
         first_block->lenght = length - sizeof(my_stats) - sizeof(my_block);
         first_block->next = NULL;
@@ -83,7 +84,7 @@ int *add_used_block(size_t size){
 
     // best fit algorithm
     while(block != NULL){
-        assert(block->marker == HEADER_MARKER);
+        assert(block->marker == BLOCK_MARKER);
         if((block->lenght + sizeof(my_block)) >= size && block->in_use == false){
             if(smallest_block == NULL || smallest_block->lenght > block->lenght){
                 smallest_block = block;
@@ -118,7 +119,7 @@ int *add_used_block(size_t size){
     int remaining_size = must_have_new_block + 1;
     malloc_header->total_blocks++;
     my_block *new_block = (my_block *)((char *)smallest_block + sizeof(my_block) + size);
-    new_block->marker = HEADER_MARKER;
+    new_block->marker = BLOCK_MARKER;
     new_block->prev = smallest_block;
     new_block->next = smallest_block->next;
     if (new_block->next != NULL) {
