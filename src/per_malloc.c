@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <assert.h>
+#include <string.h>
 
 #include "per_malloc.h"
 
