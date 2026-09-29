@@ -1,9 +1,15 @@
+/* ****************************************************************************
+ * HEADER INCLUSIONS                                                          *
+ ******************************************************************************/
 #include <stdio.h>
 #include <unistd.h>
 #include <assert.h>
 
 #include "per_malloc.h"
 
+/* ****************************************************************************
+ * VARIABLES                                                                  *
+ ******************************************************************************/
 const uint8_t HEADER_MARKER = 0x55;
 const uint8_t BLOCK_MARKER = 0x44;
 const int PAGE_SIZE = 4096;
@@ -11,22 +17,18 @@ const int BLOCK_SIZE = sizeof(my_block);
 
 static char *heap_start = NULL;
 
-my_stats *get_malloc_header(){
-    assert(heap_start != NULL);
-    my_stats *malloc_header = (my_stats *)heap_start;
-    assert(malloc_header->marker == HEADER_MARKER);
-    return malloc_header;
-}
+/* ****************************************************************************
+ * LOCAL FUNCTION PROTOTYPES                                                  *
+ ******************************************************************************/
+my_stats *get_malloc_header();
+my_block *find_last_block();
+int join_if_possible(my_block *block, my_stats *malloc_header);
+int free_page_if_possible(my_stats *malloc_header);
+int *add_used_block(size_t size);
 
-my_block *find_last_block(){
-    my_stats *malloc_header = get_malloc_header();
-    my_block *block = (my_block *)((char *)heap_start + sizeof(my_stats));
-    while(block->next != NULL){
-        block = block->next;
-    }
-    return block;
-}
-
+/* ****************************************************************************
+ * EXPORTED FUNCTIONS                                                         *
+ ******************************************************************************/
 int *my_malloc(size_t size){
     if(heap_start == NULL){
         heap_start = sbrk(0);
@@ -78,6 +80,25 @@ int my_free(void *ptr){
     return 0;
 }
 
+/* ****************************************************************************
+ * LOCAL FUNCTIONS                                                            *
+ ******************************************************************************/
+my_stats *get_malloc_header(){
+    assert(heap_start != NULL);
+    my_stats *malloc_header = (my_stats *)heap_start;
+    assert(malloc_header->marker == HEADER_MARKER);
+    return malloc_header;
+}
+
+my_block *find_last_block(){
+    my_stats *malloc_header = get_malloc_header();
+    my_block *block = (my_block *)((char *)heap_start + sizeof(my_stats));
+    while(block->next != NULL){
+        block = block->next;
+    }
+    return block;
+}
+
 int join_if_possible(my_block *block, my_stats *malloc_header){
     // Join with the next, if possible
     if(block->next != NULL && (block->next)->in_use == false){
@@ -119,6 +140,7 @@ int free_page_if_possible(my_stats *malloc_header){
         sbrk(-PAGE_SIZE);
         last_block->lenght -= PAGE_SIZE;
     }
+    return 0;
 }
 
 int *add_used_block(size_t size){
