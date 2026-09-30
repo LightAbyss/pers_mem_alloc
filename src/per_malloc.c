@@ -35,10 +35,10 @@ int *my_malloc(size_t size){
         heap_start = sbrk(0);
         sbrk(PAGE_SIZE);
     }
-    char *heap_end = sbrk(0);
-    long int length = heap_end - heap_start;
     // Check if the heap has been initialized
     if((*heap_start) != HEADER_MARKER){
+        const char *heap_end = sbrk(0);
+        long int length = heap_end - heap_start;
         *(heap_start) = HEADER_MARKER;
         my_stats *malloc_header = (my_stats *)heap_start;
         malloc_header->total_blocks = 1;
@@ -66,7 +66,7 @@ int my_free(void *ptr){
     };
     malloc_header->simple_lock = true;
 
-    my_block *block = (my_block *)(ptr - sizeof(my_block));
+    my_block *block = (my_block *)((int)ptr - sizeof(my_block));
     // Check if the block is valid
     if(block->marker != BLOCK_MARKER){
         malloc_header->simple_lock = false;
@@ -92,7 +92,6 @@ my_stats *get_malloc_header(){
 }
 
 my_block *find_last_block(){
-    my_stats *malloc_header = get_malloc_header();
     my_block *block = (my_block *)((char *)heap_start + sizeof(my_stats));
     while(block->next != NULL){
         block = block->next;
@@ -125,7 +124,6 @@ int join_if_possible(my_block *block, my_stats *malloc_header){
         }
         // Clean up the merged block header to avoid dangling pointers and potential misuse
         memset(block, 0, sizeof(my_block));
-        block = prev_block;
         malloc_header->total_blocks--;
     }
     if(malloc_header->total_pages > 1){
@@ -172,7 +170,7 @@ int *add_used_block(size_t size){
 
     // No block big engough was found
     if(smallest_block == NULL){
-        my_block *last_block = find_last_block();
+        last_block = find_last_block();
         while(last_block->lenght < size){
             sbrk(PAGE_SIZE);
             last_block->lenght += PAGE_SIZE;
