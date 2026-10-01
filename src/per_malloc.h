@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <pthread.h>
 
 struct block_x {
     uint8_t marker;
@@ -15,7 +16,7 @@ struct block_x {
 
 struct stats {
     uint8_t marker;
-    bool simple_lock;
+    pthread_mutex_t simple_lock;
     uint32_t total_blocks;
     uint32_t total_pages;
 };
