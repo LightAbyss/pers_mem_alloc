@@ -7,3 +7,6 @@ This project creates a way for programs to allocate memory on demand, similar to
 - On demand, it can return a new memory area of a given size. If the size is bigger than all existing free blocks, request the OS to grow the heap.
 - On demand, it can free a chosen block. Freeing blocks can result in a request to the OS to reduce the size of the heap.
 - Thread-safe operation. It can be used by multiple threads at the same time.
+
+## Relevant notes
+- The project uses the `sbrk` function to request memory from the OS. This function is not available on all platforms, so the project may not work on all systems. And, other functions could interfere with the heap, so it is recommended to use this project in a controlled environment.
