@@ -4,7 +4,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <assert.h>
 #include <string.h>
 
 #include "per_malloc.h"
@@ -36,7 +35,6 @@ int *add_used_block(size_t size);
 int *my_malloc(size_t size){
     if(heap_start == NULL){
         heap_start = manage_heap(0);
-        assert(heap_start != (void *)-1);
         manage_heap(PAGE_SIZE);
         compose_heap();
     }
