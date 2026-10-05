@@ -17,6 +17,7 @@ const int PAGE_SIZE = 4096;
 const int BLOCK_SIZE = sizeof(my_block);
 
 static char *heap_start = NULL;
+static pthread_mutex_t global_lock = PTHREAD_MUTEX_INITIALIZER;
 
 /* ****************************************************************************
  * LOCAL FUNCTION PROTOTYPES                                                  *
@@ -33,11 +34,16 @@ int *add_used_block(size_t size);
  * EXPORTED FUNCTIONS                                                         *
  ******************************************************************************/
 int *my_malloc(size_t size){
+    if (size > UINT32_MAX || size == 0) {
+        return NULL;
+    }
+
     if(heap_start == NULL){
         heap_start = manage_heap(0);
         manage_heap(PAGE_SIZE);
         compose_heap();
     }
+    
     return add_used_block(size);
 }
 
@@ -47,12 +53,12 @@ int my_free(void *ptr){
     }
     // Get the malloc header
     my_stats *malloc_header = get_malloc_header();
-    pthread_mutex_lock(&malloc_header->simple_lock);
+    pthread_mutex_lock(&global_lock);
 
     my_block *block = (my_block *)((char *)ptr - sizeof(my_block));
     // Check if the block is valid
     if(block->marker != BLOCK_MARKER){
-        pthread_mutex_unlock(&malloc_header->simple_lock);
+        pthread_mutex_unlock(&global_lock);
         return -1;
     }
     // Mark the block as free and clear its contents
@@ -60,7 +66,7 @@ int my_free(void *ptr){
     memset(ptr, 0, block->lenght);
     
     join_if_possible(block, malloc_header);
-    pthread_mutex_unlock(&malloc_header->simple_lock);
+    pthread_mutex_unlock(&global_lock);
     return 0;
 }
 
@@ -86,8 +92,7 @@ char *manage_heap(size_t size){
     // Wrapper to access sbrk() syscall in a safety way
     const char *result = sbrk(size);
     if (result == (void *)-1) {
-        exit(EXIT_FAILURE);
-        return NULL; // This line will never be reached, but it's here to satisfy the compiler
+        return NULL; // sbrk failed
     }
     return result;
 }
@@ -100,7 +105,7 @@ int compose_heap(){
         long int length = heap_end - heap_start;
 
         my_stats *malloc_header = (my_stats *)heap_start;
-        pthread_mutex_lock(&malloc_header->simple_lock);
+        pthread_mutex_lock(&global_lock);
         
         malloc_header->marker = HEADER_MARKER;
         malloc_header->total_blocks = 1;
@@ -113,7 +118,7 @@ int compose_heap(){
         first_block->next = NULL;
         first_block->prev = NULL;
 
-        pthread_mutex_unlock(&malloc_header->simple_lock);
+        pthread_mutex_unlock(&global_lock);
     }
     
     return 0;
@@ -165,7 +170,7 @@ int free_page_if_possible(my_stats *malloc_header){
 int *add_used_block(size_t size){
     // Get the malloc header
     my_stats *malloc_header = get_malloc_header();
-    pthread_mutex_lock(&malloc_header->simple_lock);
+    pthread_mutex_lock(&global_lock);
 
     my_block *block = (my_block *)((char *)malloc_header + sizeof(my_stats));
     my_block *smallest_block = NULL;
@@ -200,7 +205,7 @@ int *add_used_block(size_t size){
     // If not, check if its the last block, so can extend the heap, otherwise return the block as is
     if(smallest_block->lenght < size + sizeof(my_block) + 1){
         if(smallest_block != last_block){
-            pthread_mutex_unlock(&malloc_header->simple_lock);
+            pthread_mutex_unlock(&global_lock);
             return (int *)((char *)smallest_block + sizeof(my_block));
         }else{
             manage_heap(PAGE_SIZE);
@@ -222,6 +227,6 @@ int *add_used_block(size_t size){
     new_block->lenght = remaining_size;
     smallest_block->lenght = size;
     
-    pthread_mutex_unlock(&malloc_header->simple_lock);
+    pthread_mutex_unlock(&global_lock);
     return (int *)((char *)smallest_block + sizeof(my_block));
 }

@@ -16,7 +16,6 @@ struct block_x {
 
 struct stats {
     uint8_t marker;
-    pthread_mutex_t simple_lock;
     uint32_t total_blocks;
     uint32_t total_pages;
 };
