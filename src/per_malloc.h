@@ -4,7 +4,6 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdint.h>
-#include <pthread.h>
 
 struct block_x {
     uint8_t marker;
@@ -14,13 +13,13 @@ struct block_x {
     struct block_x *next;
 };
 
-struct stats {
+typedef struct{
     uint8_t marker;
+    uint8_t padding[7]; // Padding to align the structure to 8 bytes
     uint32_t total_blocks;
     uint32_t total_pages;
-};
+} my_stats;
 
-typedef struct stats my_stats;
 typedef struct block_x my_block;
 
 int *my_malloc(size_t size);
